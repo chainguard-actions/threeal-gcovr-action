@@ -1,0 +1,24 @@
+name: Test HTML theme input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install gcovr
+        run: pip install gcovr
+      - id: action
+        uses: .
+        with:
+          html-out: coverage-themed.html
+          html-theme: green
+          fail-under-line: 0
+      - name: Assert HTML report was created with theme
+        run: |
+          echo "Checking for HTML report at coverage-themed.html"
+          if [ ! -f "coverage-themed.html" ]; then
+            echo "FAIL: coverage-themed.html was not created"
+            exit 1
+          fi
+          echo "PASS: coverage-themed.html exists"

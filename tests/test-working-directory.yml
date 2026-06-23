@@ -1,0 +1,23 @@
+name: Test working-directory input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install gcovr
+        run: pip install gcovr
+      - name: Create working directory
+        run: mkdir -p /tmp/gcovr-workdir
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/gcovr-workdir
+          fail-under-line: 0
+          fail-under-branch: 0
+          fail-under-function: 0
+      - name: Assert action succeeded
+        run: |
+          echo "Action completed successfully with working-directory input"
+          echo "PASS"

@@ -1,0 +1,25 @@
+name: Test XML Cobertura report generation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install gcovr
+        run: pip install gcovr
+      - id: action
+        uses: .
+        with:
+          fail-under-line: 0
+          xml-out: coverage.xml
+      - name: Assert XML report was created
+        run: |
+          echo "Checking for XML report at coverage.xml"
+          if [ ! -f "coverage.xml" ]; then
+            echo "FAIL: coverage.xml was not created"
+            exit 1
+          fi
+          echo "PASS: coverage.xml exists"
+          echo "XML report contents (first 20 lines):"
+          head -20 coverage.xml
