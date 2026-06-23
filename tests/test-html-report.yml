@@ -1,0 +1,41 @@
+name: Test HTML report generation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake g++ python3-pip pipx
+          pipx install gcovr
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build and run sample project with coverage
+        run: |
+          mkdir -p /tmp/build
+          cmake -S "$GITHUB_WORKSPACE/sample" \
+                -B /tmp/build
+          cmake --build /tmp/build
+          cd /tmp/build && ctest --output-on-failure
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/build
+          html-out: /tmp/coverage.html
+          html-title: "Test Coverage Report"
+          print-summary: true
+
+      - name: Assert HTML report was generated
+        run: |
+          echo "Checking for HTML report at /tmp/coverage.html"
+          if [ ! -f /tmp/coverage.html ]; then
+            echo "FAIL: HTML report was not generated"
+            exit 1
+          fi
+          echo "HTML report size: $(wc -c < /tmp/coverage.html) bytes"
+          echo "PASS"

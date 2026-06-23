@@ -1,0 +1,45 @@
+name: Test Coveralls report generation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake g++ python3-pip pipx
+          pipx install gcovr
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build and run sample project with coverage
+        run: |
+          mkdir -p /tmp/build
+          cmake -S "$GITHUB_WORKSPACE/sample" \
+                -B /tmp/build
+          cmake --build /tmp/build
+          cd /tmp/build && ctest --output-on-failure
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/build
+          coveralls-out: /tmp/coverage-coveralls.json
+          coveralls-send: false
+          print-summary: true
+
+      - name: Assert Coveralls report was generated
+        run: |
+          echo "Checking for Coveralls report at /tmp/coverage-coveralls.json"
+          if [ ! -f /tmp/coverage-coveralls.json ]; then
+            echo "FAIL: Coveralls report was not generated"
+            exit 1
+          fi
+          echo "Coveralls report size: $(wc -c < /tmp/coverage-coveralls.json) bytes"
+          if ! grep -q "source_files" /tmp/coverage-coveralls.json; then
+            echo "FAIL: Coveralls report does not contain expected 'source_files' key"
+            exit 1
+          fi
+          echo "PASS"

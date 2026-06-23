@@ -1,0 +1,38 @@
+name: Test root, gcov-executable, filter, and excludes inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake g++ python3-pip pipx
+          pipx install gcovr
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build and run sample project with coverage
+        run: |
+          mkdir -p /tmp/build
+          cmake -S "$GITHUB_WORKSPACE/sample" \
+                -B /tmp/build
+          cmake --build /tmp/build
+          cd /tmp/build && ctest --output-on-failure
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/build
+          root: /tmp/build
+          gcov-executable: gcov
+          filter: ".*"
+          excludes: ".*CMakeFiles.*"
+          print-summary: true
+
+      - name: Assert action completed successfully
+        run: |
+          echo "gcovr action with root, gcov-executable, filter, and excludes ran successfully"
+          echo "PASS"

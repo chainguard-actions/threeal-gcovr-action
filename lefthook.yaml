@@ -1,0 +1,20 @@
+pre-commit:
+  piped: true
+  jobs:
+    - name: install dependencies
+      run: pnpm install
+
+    - name: check types
+      run: pnpm tsc --noEmit
+
+    - name: fix formatting
+      run: pnpm prettier --write .
+
+    - name: fix lint
+      run: pnpm eslint --fix
+
+    - name: build action
+      run: pnpm ncc build src/index.ts
+
+    - name: check diff
+      run: git diff --exit-code dist pnpm-lock.yaml {staged_files}

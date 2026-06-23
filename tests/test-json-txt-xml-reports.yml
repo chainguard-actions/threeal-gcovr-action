@@ -1,0 +1,75 @@
+name: Test JSON, text, and XML report generation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake g++ python3-pip pipx
+          pipx install gcovr
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build and run sample project with coverage
+        run: |
+          mkdir -p /tmp/build
+          cmake -S "$GITHUB_WORKSPACE/sample" \
+                -B /tmp/build
+          cmake --build /tmp/build
+          cd /tmp/build && ctest --output-on-failure
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/build
+          json-out: /tmp/coverage.json
+          json-pretty: true
+          json-summary-out: /tmp/coverage-summary.json
+          json-summary-pretty: true
+          txt-out: /tmp/coverage.txt
+          xml-out: /tmp/coverage-legacy.xml
+          print-summary: true
+
+      - name: Assert JSON report was generated
+        run: |
+          echo "Checking for JSON report at /tmp/coverage.json"
+          if [ ! -f /tmp/coverage.json ]; then
+            echo "FAIL: JSON report was not generated"
+            exit 1
+          fi
+          echo "JSON report size: $(wc -c < /tmp/coverage.json) bytes"
+          echo "PASS"
+
+      - name: Assert JSON summary report was generated
+        run: |
+          echo "Checking for JSON summary report at /tmp/coverage-summary.json"
+          if [ ! -f /tmp/coverage-summary.json ]; then
+            echo "FAIL: JSON summary report was not generated"
+            exit 1
+          fi
+          echo "JSON summary report size: $(wc -c < /tmp/coverage-summary.json) bytes"
+          echo "PASS"
+
+      - name: Assert text report was generated
+        run: |
+          echo "Checking for text report at /tmp/coverage.txt"
+          if [ ! -f /tmp/coverage.txt ]; then
+            echo "FAIL: text report was not generated"
+            exit 1
+          fi
+          echo "Text report size: $(wc -c < /tmp/coverage.txt) bytes"
+          echo "PASS"
+
+      - name: Assert legacy XML report was generated
+        run: |
+          echo "Checking for legacy XML report at /tmp/coverage-legacy.xml"
+          if [ ! -f /tmp/coverage-legacy.xml ]; then
+            echo "FAIL: legacy XML report was not generated"
+            exit 1
+          fi
+          echo "XML report size: $(wc -c < /tmp/coverage-legacy.xml) bytes"
+          echo "PASS"

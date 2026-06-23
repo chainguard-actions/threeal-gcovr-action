@@ -1,0 +1,79 @@
+name: Test fail-under-branch, fail-under-function, and fail-under-decision thresholds
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake g++ python3-pip pipx
+          pipx install gcovr
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build and run sample project with coverage
+        run: |
+          mkdir -p /tmp/build
+          cmake -S "$GITHUB_WORKSPACE/sample" \
+                -B /tmp/build
+          cmake --build /tmp/build
+          cd /tmp/build && ctest --output-on-failure
+
+      - name: Run gcovr with zero thresholds (should pass)
+        id: action-pass
+        uses: .
+        with:
+          working-directory: /tmp/build
+          fail-under-branch: 0
+          fail-under-function: 0
+          fail-under-decision: 0
+          decisions: true
+          print-summary: true
+
+      - name: Assert zero thresholds passed
+        run: |
+          echo "gcovr with zero branch/function/decision thresholds completed successfully"
+          echo "PASS"
+
+      - name: Run gcovr with high branch threshold (should fail)
+        id: action-fail-branch
+        uses: .
+        with:
+          working-directory: /tmp/build
+          fail-under-branch: 99
+          print-summary: true
+        continue-on-error: true
+
+      - name: Assert high branch threshold caused failure
+        env:
+          OUTCOME: ${{ steps.action-fail-branch.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with 99% branch coverage threshold but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when branch coverage was below threshold"
+
+      - name: Run gcovr with high function threshold (should fail)
+        id: action-fail-function
+        uses: .
+        with:
+          working-directory: /tmp/build
+          fail-under-function: 99
+          print-summary: true
+        continue-on-error: true
+
+      - name: Assert high function threshold caused failure
+        env:
+          OUTCOME: ${{ steps.action-fail-function.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with 99% function coverage threshold but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when function coverage was below threshold"

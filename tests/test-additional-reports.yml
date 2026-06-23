@@ -1,0 +1,74 @@
+name: Test JaCoCo, LCOV, SonarQube, and HTML theme report generation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake g++ python3-pip pipx
+          pipx install gcovr
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build and run sample project with coverage
+        run: |
+          mkdir -p /tmp/build
+          cmake -S "$GITHUB_WORKSPACE/sample" \
+                -B /tmp/build
+          cmake --build /tmp/build
+          cd /tmp/build && ctest --output-on-failure
+
+      - id: action
+        uses: .
+        with:
+          working-directory: /tmp/build
+          jacoco-out: /tmp/coverage-jacoco.xml
+          lcov-out: /tmp/coverage.lcov
+          sonarqube-out: /tmp/coverage-sonarqube.xml
+          html-out: /tmp/coverage-themed.html
+          html-theme: green
+          print-summary: true
+
+      - name: Assert JaCoCo report was generated
+        run: |
+          echo "Checking for JaCoCo report at /tmp/coverage-jacoco.xml"
+          if [ ! -f /tmp/coverage-jacoco.xml ]; then
+            echo "FAIL: JaCoCo report was not generated"
+            exit 1
+          fi
+          echo "JaCoCo report size: $(wc -c < /tmp/coverage-jacoco.xml) bytes"
+          echo "PASS"
+
+      - name: Assert LCOV report was generated
+        run: |
+          echo "Checking for LCOV report at /tmp/coverage.lcov"
+          if [ ! -f /tmp/coverage.lcov ]; then
+            echo "FAIL: LCOV report was not generated"
+            exit 1
+          fi
+          echo "LCOV report size: $(wc -c < /tmp/coverage.lcov) bytes"
+          echo "PASS"
+
+      - name: Assert SonarQube report was generated
+        run: |
+          echo "Checking for SonarQube report at /tmp/coverage-sonarqube.xml"
+          if [ ! -f /tmp/coverage-sonarqube.xml ]; then
+            echo "FAIL: SonarQube report was not generated"
+            exit 1
+          fi
+          echo "SonarQube report size: $(wc -c < /tmp/coverage-sonarqube.xml) bytes"
+          echo "PASS"
+
+      - name: Assert themed HTML report was generated
+        run: |
+          echo "Checking for themed HTML report at /tmp/coverage-themed.html"
+          if [ ! -f /tmp/coverage-themed.html ]; then
+            echo "FAIL: themed HTML report was not generated"
+            exit 1
+          fi
+          echo "HTML report size: $(wc -c < /tmp/coverage-themed.html) bytes"
+          echo "PASS"
