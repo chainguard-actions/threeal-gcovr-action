@@ -1,0 +1,40 @@
+name: Test exclude and coveralls-out inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install g++ with coverage support
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y g++ gcovr
+
+      - name: Create C++ source files and compile with coverage
+        run: |
+          mkdir -p /tmp/cpp-project
+          printf '#include <iostream>\nint main() {\n  std::cout << "hello" << std::endl;\n  return 0;\n}\n' > /tmp/cpp-project/main.cpp
+          printf 'int helper() { return 99; }\n' > /tmp/cpp-project/helper.cpp
+          cd /tmp/cpp-project
+          g++ --coverage -fprofile-arcs -ftest-coverage -o main main.cpp helper.cpp
+          ./main
+
+      - name: Run gcovr action with exclude and coveralls-out
+        id: gcovr
+        uses: .
+        with:
+          root: /tmp/cpp-project
+          exclude: .*/helper\.cpp
+          coveralls-out: /tmp/coveralls-report.json
+
+      - name: Assert coveralls output file was created
+        run: |
+          if [ ! -f /tmp/coveralls-report.json ]; then
+            echo "FAIL: expected coveralls output file /tmp/coveralls-report.json was not created"
+            exit 1
+          fi
+          echo "coveralls output file exists"
+          head -5 /tmp/coveralls-report.json
+          echo "PASS"

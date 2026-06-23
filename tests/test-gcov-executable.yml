@@ -1,0 +1,33 @@
+name: Test gcov-executable input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install g++ with coverage support
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y g++ gcovr
+
+      - name: Create and compile C++ source with coverage
+        run: |
+          mkdir -p /tmp/cpp-project-gcov
+          printf '#include <iostream>\nint main() {\n  std::cout << "hello" << std::endl;\n  return 0;\n}\n' > /tmp/cpp-project-gcov/main.cpp
+          cd /tmp/cpp-project-gcov
+          g++ --coverage -fprofile-arcs -ftest-coverage -o main main.cpp
+          ./main
+
+      - name: Run gcovr action with gcov-executable input
+        id: gcovr
+        uses: .
+        with:
+          root: /tmp/cpp-project-gcov
+          gcov-executable: gcov
+
+      - name: Assert gcovr ran successfully with custom gcov-executable
+        run: |
+          echo "gcovr action with gcov-executable completed successfully"
+          echo "PASS"
