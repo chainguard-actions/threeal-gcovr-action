@@ -1,0 +1,46 @@
+name: Test github-token input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up a minimal C++ project with coverage data
+        run: |
+          mkdir -p src build
+          cat > src/main.cpp << 'EOF'
+          #include <iostream>
+          int add(int a, int b) { return a + b; }
+          int main() {
+            std::cout << add(1, 2) << std::endl;
+            return 0;
+          }
+          EOF
+          cd build
+          g++ --coverage -o main ../src/main.cpp
+          ./main
+
+      - name: Run gcovr action with github-token and coveralls-out
+        id: action
+        uses: .
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          coveralls-out: /tmp/coveralls-token-test.json
+
+      - name: Assert action succeeded with github-token input
+        run: |
+          echo "Checking for coveralls output file..."
+          if [ ! -f /tmp/coveralls-token-test.json ]; then
+            echo "FAIL: coveralls output file not found at /tmp/coveralls-token-test.json"
+            exit 1
+          fi
+          echo "Coveralls file contents (first 200 chars):"
+          head -c 200 /tmp/coveralls-token-test.json
+          echo ""
+          if ! grep -q '"service_name"' /tmp/coveralls-token-test.json; then
+            echo "FAIL: coveralls JSON missing service_name field"
+            exit 1
+          fi
+          echo "PASS: gcovr action completed with github-token input and coveralls output generated"

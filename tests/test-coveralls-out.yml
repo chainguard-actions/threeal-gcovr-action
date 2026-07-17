@@ -1,0 +1,55 @@
+name: Test coveralls-out input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up a minimal C++ project with coverage data
+        run: |
+          mkdir -p src build
+          cat > src/main.cpp << 'EOF'
+          #include <iostream>
+          int add(int a, int b) { return a + b; }
+          int main() {
+            std::cout << add(1, 2) << std::endl;
+            return 0;
+          }
+          EOF
+          cd build
+          g++ --coverage -o main ../src/main.cpp
+          ./main
+
+      - name: Run gcovr action with coveralls-out
+        id: action
+        uses: .
+        with:
+          coveralls-out: /tmp/coveralls-report.json
+
+      - name: Assert coveralls output file was created
+        run: |
+          echo "Checking for coveralls output file..."
+          if [ ! -f /tmp/coveralls-report.json ]; then
+            echo "FAIL: coveralls output file not found at /tmp/coveralls-report.json"
+            exit 1
+          fi
+          echo "Coveralls file contents (first 200 chars):"
+          head -c 200 /tmp/coveralls-report.json
+          echo ""
+          # Verify it contains expected JSON structure
+          if ! grep -q '"service_name"' /tmp/coveralls-report.json; then
+            echo "FAIL: coveralls JSON missing service_name field"
+            exit 1
+          fi
+          # Verify the service_name was patched from github-actions-ci to github
+          if grep -q '"service_name": "github-actions-ci"' /tmp/coveralls-report.json; then
+            echo "FAIL: service_name was not patched from github-actions-ci to github"
+            exit 1
+          fi
+          if ! grep -q '"service_name": "github"' /tmp/coveralls-report.json; then
+            echo "FAIL: service_name was not set to github"
+            exit 1
+          fi
+          echo "PASS: coveralls output file created and service_name correctly patched"
