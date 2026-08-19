@@ -1,0 +1,64 @@
+name: Test Fail Under Branch Coverage Threshold
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies and gcovr
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gcc python3-pip
+          sudo pip3 install gcovr --break-system-packages 2>/dev/null || \
+            sudo pip3 install gcovr 2>/dev/null || \
+            pip3 install --user gcovr --break-system-packages 2>/dev/null || \
+            pip3 install --user gcovr
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Compile C program with branches and coverage flags
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/cov-branch
+          cat > $GITHUB_WORKSPACE/cov-branch/branch.c << 'EOF'
+          #include <stdio.h>
+          int check(int x) {
+              if (x > 0) {
+                  return 1;
+              } else {
+                  return -1;
+              }
+          }
+          int main() {
+              /* Only exercise one branch - branch coverage will be < 100% */
+              printf("%d\n", check(5));
+              return 0;
+          }
+          EOF
+          cd $GITHUB_WORKSPACE/cov-branch
+          gcc -fprofile-arcs -ftest-coverage -O0 -o branch branch.c
+          ./branch
+
+      - name: Verify gcovr is available
+        run: |
+          which gcovr || (echo "gcovr not found in PATH" && exit 1)
+          gcovr --version
+
+      - name: Run gcovr action with 100% branch threshold (should fail)
+        id: action
+        uses: .
+        with:
+          working-directory: ${{ github.workspace }}/cov-branch
+          fail-under-branch: 100
+        continue-on-error: true
+
+      - name: Assert action failed due to low branch coverage
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "action outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when branch coverage is below 100% threshold, but outcome was '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when branch coverage was below threshold"

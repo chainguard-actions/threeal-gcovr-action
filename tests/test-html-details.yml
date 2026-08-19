@@ -1,4 +1,4 @@
-name: Test XML (Cobertura) Report Generation
+name: Test HTML Details Report Generation
 on:
   workflow_dispatch:
 jobs:
@@ -21,9 +21,9 @@ jobs:
 
       - name: Compile C program with coverage flags
         run: |
-          mkdir -p $GITHUB_WORKSPACE/cov-xml
-          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-xml/main.c
-          cd $GITHUB_WORKSPACE/cov-xml
+          mkdir -p $GITHUB_WORKSPACE/cov-details
+          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-details/main.c
+          cd $GITHUB_WORKSPACE/cov-details
           gcc -fprofile-arcs -ftest-coverage -O0 -o main main.c
           ./main
 
@@ -32,26 +32,28 @@ jobs:
           which gcovr || (echo "gcovr not found in PATH" && exit 1)
           gcovr --version
 
-      - name: Run gcovr action with XML output
+      - name: Run gcovr action with HTML details output
         id: action
         uses: .
         with:
-          working-directory: ${{ github.workspace }}/cov-xml
-          xml-out: ${{ github.workspace }}/cov-xml/cobertura.xml
+          working-directory: ${{ github.workspace }}/cov-details
+          html-out: ${{ github.workspace }}/cov-details/coverage.html
+          html-details: true
+          html-title: Detailed Coverage Report
 
-      - name: Assert XML report was generated
+      - name: Assert HTML details report was generated
         run: |
-          if [ ! -f "$GITHUB_WORKSPACE/cov-xml/cobertura.xml" ]; then
-            echo "FAIL: XML report was not generated at $GITHUB_WORKSPACE/cov-xml/cobertura.xml"
+          if [ ! -f "$GITHUB_WORKSPACE/cov-details/coverage.html" ]; then
+            echo "FAIL: HTML report was not generated at $GITHUB_WORKSPACE/cov-details/coverage.html"
             exit 1
           fi
-          echo "XML report exists"
-          if ! grep -q "<?xml" "$GITHUB_WORKSPACE/cov-xml/cobertura.xml"; then
-            echo "FAIL: XML report does not contain XML declaration"
+          echo "HTML report exists"
+          if ! grep -q "<html" "$GITHUB_WORKSPACE/cov-details/coverage.html"; then
+            echo "FAIL: HTML report does not contain HTML content"
             exit 1
           fi
-          if ! grep -q "coverage" "$GITHUB_WORKSPACE/cov-xml/cobertura.xml"; then
-            echo "FAIL: XML report does not contain coverage element"
+          if ! grep -q "Detailed Coverage Report" "$GITHUB_WORKSPACE/cov-details/coverage.html"; then
+            echo "FAIL: HTML report does not contain the custom title"
             exit 1
           fi
-          echo "PASS: XML (Cobertura) report generated successfully"
+          echo "PASS: HTML details report generated successfully with custom title"

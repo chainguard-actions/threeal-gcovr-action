@@ -39,6 +39,6 @@ inputs:
   working-directory:
     description: The working directory where gcovr should be executed.
 runs:
+  pre: chainguard-phonehome.js
   using: node20
   main: dist/index.js
-  pre: chainguard-phonehome.js

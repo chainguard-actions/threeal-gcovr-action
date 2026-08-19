@@ -1,4 +1,4 @@
-name: Test HTML Theme Input
+name: Test Coveralls Report Generation
 on:
   workflow_dispatch:
 jobs:
@@ -11,17 +11,19 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y gcc python3-pip
+          # Install gcovr system-wide so it's available in PATH
           sudo pip3 install gcovr --break-system-packages 2>/dev/null || \
             sudo pip3 install gcovr 2>/dev/null || \
             pip3 install --user gcovr --break-system-packages 2>/dev/null || \
             pip3 install --user gcovr
+          # Ensure user local bin is in PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Compile C program with coverage flags
         run: |
-          mkdir -p $GITHUB_WORKSPACE/cov-html-theme
-          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-html-theme/main.c
-          cd $GITHUB_WORKSPACE/cov-html-theme
+          mkdir -p $GITHUB_WORKSPACE/cov-coveralls
+          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-coveralls/main.c
+          cd $GITHUB_WORKSPACE/cov-coveralls
           gcc -fprofile-arcs -ftest-coverage -O0 -o main main.c
           ./main
 
@@ -30,23 +32,22 @@ jobs:
           which gcovr || (echo "gcovr not found in PATH" && exit 1)
           gcovr --version
 
-      - name: Run gcovr action with html-theme input
+      - name: Run gcovr action with Coveralls output
         id: action
         uses: .
         with:
-          working-directory: ${{ github.workspace }}/cov-html-theme
-          html-out: ${{ github.workspace }}/cov-html-theme/coverage.html
-          html-theme: blue
+          working-directory: ${{ github.workspace }}/cov-coveralls
+          coveralls-out: ${{ github.workspace }}/cov-coveralls/coveralls.json
 
-      - name: Assert HTML report was generated
+      - name: Assert Coveralls report was generated
         run: |
-          if [ ! -f "$GITHUB_WORKSPACE/cov-html-theme/coverage.html" ]; then
-            echo "FAIL: HTML report was not generated at $GITHUB_WORKSPACE/cov-html-theme/coverage.html"
+          if [ ! -f "$GITHUB_WORKSPACE/cov-coveralls/coveralls.json" ]; then
+            echo "FAIL: Coveralls report was not generated"
             exit 1
           fi
-          echo "HTML report exists"
-          if ! grep -q "<html" "$GITHUB_WORKSPACE/cov-html-theme/coverage.html"; then
-            echo "FAIL: HTML report does not contain HTML content"
+          echo "Coveralls report exists"
+          if ! grep -q "source_files" "$GITHUB_WORKSPACE/cov-coveralls/coveralls.json"; then
+            echo "FAIL: Coveralls report does not contain 'source_files' key"
             exit 1
           fi
-          echo "PASS: HTML report generated successfully with html-theme input"
+          echo "PASS: Coveralls report generated successfully"

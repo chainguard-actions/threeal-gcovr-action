@@ -1,4 +1,4 @@
-name: Test HTML report generation
+name: Test HTML Report Generation
 on:
   workflow_dispatch:
 jobs:
@@ -6,19 +6,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Install gcovr
-        run: pip install gcovr
-      - id: action
+
+      - name: Install dependencies and gcovr
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gcc python3-pip
+          # Install gcovr system-wide so it's available in PATH
+          sudo pip3 install gcovr --break-system-packages 2>/dev/null || \
+            sudo pip3 install gcovr 2>/dev/null || \
+            pip3 install --user gcovr --break-system-packages 2>/dev/null || \
+            pip3 install --user gcovr
+          # Ensure user local bin is in PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Compile C program with coverage flags
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/cov-html
+          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-html/main.c
+          cd $GITHUB_WORKSPACE/cov-html
+          gcc -fprofile-arcs -ftest-coverage -O0 -o main main.c
+          ./main
+
+      - name: Verify gcovr is available
+        run: |
+          which gcovr || (echo "gcovr not found in PATH" && exit 1)
+          gcovr --version
+
+      - name: Run gcovr action with HTML output
+        id: action
         uses: .
         with:
-          fail-under-line: 0
-          html-out: coverage.html
-          html-title: "Test Coverage Report"
-      - name: Assert HTML report was created
+          working-directory: ${{ github.workspace }}/cov-html
+          html-out: ${{ github.workspace }}/cov-html/coverage.html
+          html-title: Test Coverage Report
+
+      - name: Assert HTML report was generated
         run: |
-          echo "Checking for HTML report at coverage.html"
-          if [ ! -f "coverage.html" ]; then
-            echo "FAIL: coverage.html was not created"
+          if [ ! -f "$GITHUB_WORKSPACE/cov-html/coverage.html" ]; then
+            echo "FAIL: HTML report was not generated at $GITHUB_WORKSPACE/cov-html/coverage.html"
             exit 1
           fi
-          echo "PASS: coverage.html exists"
+          echo "HTML report exists"
+          if ! grep -q "<html" "$GITHUB_WORKSPACE/cov-html/coverage.html"; then
+            echo "FAIL: HTML report does not contain HTML content"
+            exit 1
+          fi
+          echo "PASS: HTML report generated successfully"

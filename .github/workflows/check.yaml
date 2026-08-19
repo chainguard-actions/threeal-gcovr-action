@@ -1,0 +1,31 @@
+name: Check
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+permissions: {}
+jobs:
+  check-package:
+    name: Check Package
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4.0.4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Yarn
+        uses: threeal/setup-yarn-action@ec8c075e62bc497968de40011c2b766f5e8f1ac5 # v2.0.0
+
+      - name: Check Format
+        run: yarn format
+
+      - name: Check Diff
+        run: git diff && git diff-index --quiet --exit-code HEAD
+
+      - name: Check Lint
+        run: yarn lint

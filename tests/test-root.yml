@@ -1,4 +1,4 @@
-name: Test Gcov Executable Input
+name: Test Root Input
 on:
   workflow_dispatch:
 jobs:
@@ -19,27 +19,26 @@ jobs:
 
       - name: Compile C program with coverage flags
         run: |
-          mkdir -p $GITHUB_WORKSPACE/cov-gcov-exec
-          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-gcov-exec/main.c
-          cd $GITHUB_WORKSPACE/cov-gcov-exec
-          gcc -fprofile-arcs -ftest-coverage -O0 -o main main.c
+          mkdir -p $GITHUB_WORKSPACE/cov-root/src
+          mkdir -p $GITHUB_WORKSPACE/cov-root/build
+          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-root/src/main.c
+          cd $GITHUB_WORKSPACE/cov-root/build
+          gcc -fprofile-arcs -ftest-coverage -O0 -o main ../src/main.c
           ./main
 
-      - name: Verify gcovr and gcov are available
+      - name: Verify gcovr is available
         run: |
           which gcovr || (echo "gcovr not found in PATH" && exit 1)
           gcovr --version
-          which gcov || (echo "gcov not found in PATH" && exit 1)
-          gcov --version
 
-      - name: Run gcovr action with explicit gcov-executable
+      - name: Run gcovr action with root input pointing to source directory
         id: action
         uses: .
         with:
-          working-directory: ${{ github.workspace }}/cov-gcov-exec
-          gcov-executable: gcov
+          working-directory: ${{ github.workspace }}/cov-root/build
+          root: ${{ github.workspace }}/cov-root/src
 
       - name: Assert action completed successfully
         run: |
-          echo "Action completed successfully with gcov-executable input"
+          echo "Action completed successfully with root input"
           echo "PASS"

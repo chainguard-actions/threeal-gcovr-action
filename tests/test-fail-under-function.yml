@@ -1,4 +1,4 @@
-name: Test Fail Under Line Coverage Threshold
+name: Test Fail Under Function Coverage Threshold
 on:
   workflow_dispatch:
 jobs:
@@ -11,21 +11,19 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y gcc python3-pip
-          # Install gcovr system-wide so it's available in PATH
           sudo pip3 install gcovr --break-system-packages 2>/dev/null || \
             sudo pip3 install gcovr 2>/dev/null || \
             pip3 install --user gcovr --break-system-packages 2>/dev/null || \
             pip3 install --user gcovr
-          # Ensure user local bin is in PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Compile C program with coverage flags and run it
+      - name: Compile C program with uncovered function and coverage flags
         run: |
-          mkdir -p $GITHUB_WORKSPACE/cov-fail
-          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-fail/main.c
-          cd $GITHUB_WORKSPACE/cov-fail
-          # Compile with coverage flags and run - the 'uncovered' function
-          # is never called, so line coverage will be less than 100%
+          mkdir -p $GITHUB_WORKSPACE/cov-function
+          cp tests/fixtures/src/main.c $GITHUB_WORKSPACE/cov-function/main.c
+          cd $GITHUB_WORKSPACE/cov-function
+          # The fixture has an 'uncovered' function that is never called,
+          # so function coverage will be less than 100%
           gcc -fprofile-arcs -ftest-coverage -O0 -o main main.c
           ./main
 
@@ -34,21 +32,21 @@ jobs:
           which gcovr || (echo "gcovr not found in PATH" && exit 1)
           gcovr --version
 
-      - name: Run gcovr action with 100% line threshold (should fail due to uncovered function)
+      - name: Run gcovr action with 100% function threshold (should fail)
         id: action
         uses: .
         with:
-          working-directory: ${{ github.workspace }}/cov-fail
-          fail-under-line: 100
+          working-directory: ${{ github.workspace }}/cov-function
+          fail-under-function: 100
         continue-on-error: true
 
-      - name: Assert action failed due to low coverage
+      - name: Assert action failed due to low function coverage
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "action outcome: $OUTCOME"
           if [ "$OUTCOME" != "failure" ]; then
-            echo "FAIL: expected action to fail when coverage is below 100% threshold, but outcome was '$OUTCOME'"
+            echo "FAIL: expected action to fail when function coverage is below 100% threshold, but outcome was '$OUTCOME'"
             exit 1
           fi
-          echo "PASS: action correctly failed when line coverage was below threshold"
+          echo "PASS: action correctly failed when function coverage was below threshold"
